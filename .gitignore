@@ -1,0 +1,25 @@
+# Visual Studio local settings and caches
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build output: keep directories traversable so EXE files remain visible
+[Bb]in/**
+![Bb]in/**/
+[Oo]bj/**
+![Oo]bj/**/
+
+# WPF temporary projects
+*_wpftmp.csproj
+*_wpftmp.csproj.*
+
+# Temporary files and debug symbols
+*.pdb
+*.tmp
+*.log
+*.bak
+
+# Keep executable files, including those under bin and obj
+!*.[eE][xX][eE]
