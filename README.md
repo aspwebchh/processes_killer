@@ -29,7 +29,15 @@ TCP 只展示监听端点，UDP 展示已绑定端点。无匹配结果表示当
 
 ## 构建与验证
 
-使用 Visual Studio / Build Tools 的 MSBuild（包含 .NET 桌面开发工具及 .NET Framework 4.7.2 targeting pack）：
+推荐使用根目录下的编译脚本直接编译到 `bin\Release\`：
+
+```powershell
+.\build.ps1               # 默认直接编译 Release 到 bin\Release
+.\build.ps1 -Rebuild      # 重新完整编译
+.\build.ps1 -RunTests     # 编译后自动运行测试
+```
+
+也可手动调用 Visual Studio / Build Tools 的 MSBuild：
 
 ```powershell
 msbuild ProcessesKiller.csproj /p:Configuration=Debug
