@@ -8,6 +8,7 @@ using System.Globalization;
 using System.Linq;
 using System.Management;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -49,6 +50,19 @@ namespace ProcessesKiller
         private bool _refreshRequested;
         private string _pendingRefreshResultText;
         private string _lastResult = "就绪";
+        private readonly CancellationTokenSource _windowLifetime = new CancellationTokenSource();
+        private bool _isClosing;
+        private bool _isUiReady;
+        private bool _isTerminating;
+        private long _viewRevision;
+        internal Func<string, string, bool> TerminationConfirmation { get; set; }
+
+        private bool ConfirmTermination(string message, string title)
+        {
+            if (TerminationConfirmation != null) return TerminationConfirmation(message, title);
+            return MessageBox.Show(this, message, title, MessageBoxButton.YesNo,
+                MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes;
+        }
 
         internal enum ExplorerProcessKind
         {
@@ -62,7 +76,9 @@ namespace ProcessesKiller
         {
             InitializeComponent();
             DataContext = this;
+            _isUiReady = true;
             EnableLiveSorting();
+            EnablePortSorting();
             RefreshProcesses("就绪");
             _refreshTimer.Interval = TimeSpan.FromSeconds(3);
             _refreshTimer.Tick += RefreshTimer_Tick;
@@ -86,7 +102,9 @@ namespace ProcessesKiller
 
         private void RefreshTimer_Tick(object sender, EventArgs e)
         {
-            RefreshProcesses(null);
+            if (_isTerminating || _isConfirmingPortKill || _isClosing) return;
+            if (IsProcessTabActive) RefreshProcesses(null);
+            else if (PortAutoRefreshCheckBox.IsChecked == true) RefreshPortResults(false);
         }
 
         private void ProcessFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -236,6 +254,7 @@ namespace ProcessesKiller
 
         private async void RefreshProcesses(string resultText)
         {
+            if (_isClosing || !IsProcessTabActive || _isTerminating) return;
             if (_isRefreshing)
             {
                 if (!string.IsNullOrWhiteSpace(resultText))
@@ -263,10 +282,13 @@ namespace ProcessesKiller
                     SyncFilterOptions(targetProcessNames);
 
                     var filterAtStart = _selectedProcessNameFilter;
+                    var revisionAtStart = _viewRevision;
                     var activeTargetProcessNames = new HashSet<string>(GetActiveTargetProcessNames(), StringComparer.OrdinalIgnoreCase);
                     var snapshot = await Task.Run(() => GetProcessSnapshot(activeTargetProcessNames));
 
-                    if (!string.Equals(filterAtStart, _selectedProcessNameFilter, StringComparison.OrdinalIgnoreCase))
+                    if (_isClosing || !IsProcessTabActive || _isTerminating) return;
+
+                    if (revisionAtStart != _viewRevision || !string.Equals(filterAtStart, _selectedProcessNameFilter, StringComparison.OrdinalIgnoreCase))
                     {
                         _refreshRequested = true;
                         continue;
@@ -280,7 +302,7 @@ namespace ProcessesKiller
             }
             catch (Exception ex)
             {
-                UpdateStatus("刷新失败：" + ex.Message);
+                if (!_isClosing) UpdateStatus("刷新失败：" + ex.Message);
             }
             finally
             {
@@ -472,6 +494,10 @@ namespace ProcessesKiller
 
         protected override void OnClosed(EventArgs e)
         {
+            _isClosing = true;
+            _viewRevision++;
+            _portVersion++;
+            _windowLifetime.Cancel();
             _refreshTimer.Stop();
             _refreshTimer.Tick -= RefreshTimer_Tick;
             base.OnClosed(e);
@@ -497,14 +523,16 @@ namespace ProcessesKiller
                 ThreadCountValue = threadCount,
                 ThreadCount = threadCount < 0 ? MissingText : threadCount.ToString(CultureInfo.InvariantCulture),
                 StartTimeDisplay = SafeRead(() => process.StartTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)),
+                StartTimeUtcTicks = ReadStartTimeUtcTicks(process),
                 MainWindowTitle = EmptyToDash(SafeRead(() => process.MainWindowTitle)),
                 ProcessPath = EmptyToMissing(wmiInfo == null ? null : wmiInfo.ExecutablePath),
                 CommandLine = EmptyToMissing(commandLine)
             };
         }
 
-        private void KillProcesses(IEnumerable<ProcessInfo> processInfos)
+        private async void KillProcesses(IEnumerable<ProcessInfo> processInfos)
         {
+            if (_isTerminating || _isClosing) return;
             var requestedProcesses = processInfos
                 .Where(processInfo => processInfo != null)
                 .GroupBy(processInfo => processInfo.Id)
@@ -520,7 +548,6 @@ namespace ProcessesKiller
             var processesToKill = requestedProcesses
                 .Where(processInfo => processInfo.Id != _currentProcessId)
                 .ToList();
-            var skippedCurrentProcessCount = requestedProcesses.Count - processesToKill.Count;
 
             if (processesToKill.Count == 0)
             {
@@ -528,81 +555,47 @@ namespace ProcessesKiller
                 return;
             }
 
-            if (processesToKill.Any(processInfo => processInfo.IsExplorer))
+            _isTerminating = true;
+            _viewRevision++;
+            UpdateOperationButtons();
+            try
             {
-                var result = MessageBox.Show(
-                    this,
-                    "将结束 explorer.exe，桌面和任务栏可能会关闭。\n\n确定继续吗？",
-                    "确认结束 explorer.exe",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-
-                if (result != MessageBoxResult.Yes)
+                if (processesToKill.Any(processInfo => processInfo.IsExplorer))
                 {
-                    UpdateStatus("已取消结束操作。");
-                    return;
-                }
-            }
-
-            var successCount = 0;
-            var skippedCount = skippedCurrentProcessCount;
-            var failures = new List<string>();
-
-            foreach (var processInfo in processesToKill)
-            {
-                try
-                {
-                    using (var process = Process.GetProcessById(processInfo.Id))
+                    var confirmed = ConfirmTermination(
+                        "将结束 explorer.exe，桌面和任务栏可能会关闭。\n\n确定继续吗？",
+                        "确认结束 explorer.exe");
+                    if (!confirmed)
                     {
-                        var currentName = NormalizeProcessName(SafeGetProcessName(process));
-                        if (!string.Equals(currentName, processInfo.NormalizedName, StringComparison.OrdinalIgnoreCase))
-                        {
-                            skippedCount++;
-                            continue;
-                        }
-
-                        if (process.HasExited)
-                        {
-                            skippedCount++;
-                            continue;
-                        }
-
-                        process.Kill();
-                        process.WaitForExit(1000);
-                        successCount++;
+                        UpdateStatus("已取消结束操作。");
+                        return;
                     }
                 }
-                catch (ArgumentException)
+                UpdateStatus("正在结束进程…");
+                var targets = requestedProcesses.Select(info => CreateTarget(info, false)).ToList();
+                var result = await Task.Run(() => ProcessTerminationService.Terminate(targets, _currentProcessId, _windowLifetime.Token));
+                if (_isClosing) return;
+                UpdateStatus(result.Summary);
+                if (result.Failures.Count > 0)
                 {
-                    skippedCount++;
-                }
-                catch (InvalidOperationException)
-                {
-                    skippedCount++;
-                }
-                catch (Exception ex)
-                {
-                    failures.Add(string.Format(
-                        CultureInfo.CurrentCulture,
-                        "{0}({1}): {2}",
-                        processInfo.Name,
-                        processInfo.Id,
-                        ex.Message));
+                    MessageBox.Show(this, string.Join(Environment.NewLine, result.Failures.Take(8)),
+                        "部分进程结束失败", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
-
-            var resultText = BuildKillResultText(requestedProcesses.Count, successCount, skippedCount, failures.Count);
-            if (failures.Count > 0)
+            catch (Exception ex)
             {
-                MessageBox.Show(
-                    this,
-                    string.Join(Environment.NewLine, failures.Take(8)),
-                    "部分进程结束失败",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                if (!_isClosing) UpdateStatus("结束失败：" + ex.Message);
             }
-
-            RefreshProcesses(resultText);
+            finally
+            {
+                _isTerminating = false;
+                if (!_isClosing)
+                {
+                    UpdateOperationButtons();
+                    RefreshProcesses(_lastResult);
+                    if (!IsProcessTabActive) RefreshPortResults(false);
+                }
+            }
         }
 
         private static HashSet<string> LoadTargetProcessNames()
@@ -697,18 +690,7 @@ namespace ProcessesKiller
                 _processes.Count,
                 ProcessGrid == null ? 0 : ProcessGrid.SelectedItems.Count);
             LastResultTextBlock.Text = _lastResult;
-            KillSelectedButton.IsEnabled = ProcessGrid != null && ProcessGrid.SelectedItems.Count > 0;
-        }
-
-        private static string BuildKillResultText(int requestedCount, int successCount, int skippedCount, int failureCount)
-        {
-            return string.Format(
-                CultureInfo.CurrentCulture,
-                "结束完成：请求 {0} 个，成功 {1} 个，跳过 {2} 个，失败 {3} 个。",
-                requestedCount,
-                successCount,
-                skippedCount,
-                failureCount);
+            UpdateOperationButtons();
         }
 
         private static string NormalizeProcessName(string processName)
@@ -950,6 +932,7 @@ namespace ProcessesKiller
 
         public class ProcessInfo : INotifyPropertyChanged
         {
+            public long? StartTimeUtcTicks { get; set; }
             private int _id;
             private string _name;
             private string _normalizedName;
@@ -1084,6 +1067,7 @@ namespace ProcessesKiller
                 ThreadCountValue = processInfo.ThreadCountValue;
                 ThreadCount = processInfo.ThreadCount;
                 StartTimeDisplay = processInfo.StartTimeDisplay;
+                StartTimeUtcTicks = processInfo.StartTimeUtcTicks;
                 MainWindowTitle = processInfo.MainWindowTitle;
                 ProcessPath = processInfo.ProcessPath;
                 CommandLine = processInfo.CommandLine;

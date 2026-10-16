@@ -11,6 +11,9 @@
 [Oo]bj/**
 ![Oo]bj/**/
 
+# Release distribution packages
+artifacts/
+
 # WPF temporary projects
 *_wpftmp.csproj
 *_wpftmp.csproj.*

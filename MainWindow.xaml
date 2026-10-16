@@ -19,7 +19,11 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <TabControl x:Name="WorkspaceTabs" SelectedIndex="0" Margin="16" BorderThickness="0" Background="Transparent"
+                ItemContainerStyle="{StaticResource WorkspaceTabItemStyle}"
+                SelectionChanged="WorkspaceTabs_SelectionChanged">
+    <TabItem Header="进程管理">
+    <Grid Margin="0,12,0,0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -36,7 +40,7 @@
                 Margin="0,0,0,12">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                    <Button Style="{StaticResource PrimaryButtonStyle}"
+                    <Button x:Name="RefreshProcessButton" Style="{StaticResource PrimaryButtonStyle}"
                             MinWidth="92"
                             Margin="0,0,8,0"
                             Content="刷新"
@@ -47,7 +51,7 @@
                             Margin="0,0,8,0"
                             Content="结束选中"
                             Click="KillSelectedButton_Click" />
-                    <Button Style="{StaticResource BaseButtonStyle}"
+                    <Button x:Name="KillAllButton" Style="{StaticResource BaseButtonStyle}"
                             MinWidth="140"
                             Margin="0,0,8,0"
                             Content="结束当前列表进程"
@@ -105,7 +109,7 @@
                                  BorderBrush="{StaticResource BorderBrush}"
                                  BorderThickness="1"
                                  Padding="4">
-                        <MenuItem Header="结束该进程"
+                        <MenuItem x:Name="ProcessKillMenuItem" Header="结束该进程"
                                   Click="KillSingleMenuItem_Click"
                                   Foreground="{StaticResource TextPrimaryBrush}"
                                   Padding="14,8" />
@@ -188,4 +192,133 @@
             </DockPanel>
         </Border>
     </Grid>
+    </TabItem>
+    <TabItem Header="端口查询">
+        <Grid Margin="0,12,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                <StackPanel>
+                    <DockPanel LastChildFill="False">
+                        <CheckBox x:Name="PortAutoRefreshCheckBox" DockPanel.Dock="Right" Content="自动刷新" IsChecked="True"
+                                  FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13" VerticalAlignment="Center" Margin="16,0,0,0"
+                                  Foreground="{StaticResource TextSecondaryBrush}" ToolTip="每 3 秒刷新当前页"
+                                  Checked="PortAutoRefresh_Changed" Unchecked="PortAutoRefresh_Changed" />
+                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <TextBlock Text="端口" Style="{StaticResource FilterLabelStyle}" Margin="0,0,8,0" />
+                        <Grid Width="140" Margin="0,0,12,0">
+                            <TextBox x:Name="PortInputTextBox" MaxLength="12" Style="{StaticResource ModernTextBoxStyle}"
+                                     ToolTip="端口留空查询全部；输入 1–65535 的整数可筛选，按 Enter 查询"
+                                     TextChanged="PortConditions_Changed" KeyDown="PortInput_KeyDown" />
+                            <TextBlock Text="留空查询全部" IsHitTestVisible="False" Margin="11,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Text, ElementName=PortInputTextBox}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                        <TextBlock Text="协议" Style="{StaticResource FilterLabelStyle}" Margin="0,0,8,0" />
+                        <ComboBox x:Name="PortProtocolComboBox" Width="90" Height="34" SelectedIndex="0" Margin="0,0,12,0"
+                                  Style="{StaticResource ModernComboBoxStyle}"
+                                  ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}"
+                                  SelectionChanged="PortConditions_Changed">
+                            <ComboBoxItem Content="全部" />
+                            <ComboBoxItem Content="TCP" />
+                            <ComboBoxItem Content="UDP" />
+                        </ComboBox>
+                        <Button x:Name="PortQueryButton" Content="查询" MinWidth="70" Padding="12,6" Margin="0,0,8,0"
+                                Style="{StaticResource PrimaryButtonStyle}" Click="PortQueryButton_Click" />
+                        <Button x:Name="PortClearButton" Content="清除" MinWidth="70" Padding="12,6" Margin="0,0,8,0"
+                                Style="{StaticResource BaseButtonStyle}" Click="PortClearButton_Click" />
+                        <Button x:Name="KillPortSelectedButton" Content="结束选中" IsEnabled="False" Padding="12,6"
+                                Style="{StaticResource DangerButtonStyle}" Click="KillPortSelectedButton_Click" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock x:Name="PortInputErrorTextBlock" Foreground="{StaticResource DangerBrush}"
+                               FontSize="12" Margin="40,3,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="8" ClipToBounds="True">
+                <DataGrid x:Name="PortProcessGrid" Style="{StaticResource ModernDataGridStyle}" BorderThickness="0"
+                          ItemsSource="{Binding PortProcesses}" AutoGenerateColumns="False" IsReadOnly="True"
+                          CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Extended"
+                          SelectionUnit="FullRow" EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          SelectionChanged="PortGrid_SelectionChanged" PreviewMouseRightButtonDown="PortGrid_PreviewMouseRightButtonDown"
+                          MouseDoubleClick="PortGrid_MouseDoubleClick">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernRowStyle}">
+                            <Setter Property="ToolTip" Value="{Binding OperationHint}" />
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="4">
+                            <MenuItem x:Name="PortKillMenuItem" Header="结束选中进程" Click="KillPortSelectedButton_Click" Padding="14,8" IsEnabled="False" />
+                            <MenuItem x:Name="PortViewDetailsMenuItem" Header="查看详情" Click="ViewPortDetails_Click" Padding="14,8" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="复制 PID" Tag="Pid" Click="CopyPortInfo_Click" Padding="14,8" />
+                            <MenuItem Header="复制可执行路径" Tag="Path" Click="CopyPortInfo_Click" Padding="14,8" />
+                            <MenuItem Header="复制命令行" Tag="CommandLine" Click="CopyPortInfo_Click" Padding="14,8" />
+                            <MenuItem Header="复制选中信息" Tag="All" Click="CopyPortInfo_Click" Padding="14,8" />
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="进程名" Binding="{Binding Name}" Width="220" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                        <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="100" />
+                        <DataGridTextColumn Header="端口" Binding="{Binding Port}" Width="100" />
+                        <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="90" />
+                        <DataGridTextColumn Header="本地地址" Binding="{Binding LocalAddress}" Width="*" MinWidth="210" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+            <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="8" Padding="14,10" Margin="0,12,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="PortCountTextBlock" Text="0 个进程 · 0 项 · 已选 0 项" FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,20,0" />
+                    <Button x:Name="PortResultDetailsButton" Grid.Column="1" IsEnabled="False" HorizontalContentAlignment="Right"
+                            Click="PortOperationDetailsButton_Click" ToolTipService.ShowOnDisabled="True">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                <Setter Property="Cursor" Value="Hand" />
+                                <Setter Property="Template"><Setter.Value>
+                                    <ControlTemplate TargetType="Button"><ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" /></ControlTemplate>
+                                </Setter.Value></Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                        <Setter Property="Cursor" Value="Arrow" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <TextBlock x:Name="PortLastResultTextBlock" Text="尚未查询" FontSize="12" TextTrimming="CharacterEllipsis" />
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </TabItem>
+    </TabControl>
 </Window>
