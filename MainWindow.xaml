@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="进程结束工具"
-        Height="660"
+        Height="600"
         MinHeight="460"
-        Width="1200"
+        Width="1100"
         MinWidth="900"
         Background="{StaticResource BackgroundBrush}"
         WindowStartupLocation="CenterScreen">
@@ -17,236 +17,157 @@
             <Setter Property="ToolTip" Value="{Binding RelativeSource={RelativeSource Self}, Path=Text}" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
+        <!-- 顶栏右侧的工具栏：只显示当前标签页对应的一组 -->
+        <Style x:Key="TopBarToolbarStyle" TargetType="{x:Type StackPanel}">
+            <Setter Property="Orientation" Value="Horizontal" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Height" Value="37" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Visibility" Value="Collapsed" />
+        </Style>
+        <Style x:Key="ProcessToolbarStyle" TargetType="{x:Type StackPanel}" BasedOn="{StaticResource TopBarToolbarStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedIndex, ElementName=WorkspaceTabs}" Value="0">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="PortToolbarStyle" TargetType="{x:Type StackPanel}" BasedOn="{StaticResource TopBarToolbarStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding SelectedIndex, ElementName=WorkspaceTabs}" Value="1">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
-    <TabControl x:Name="WorkspaceTabs" SelectedIndex="0" Margin="16" BorderThickness="0" Background="Transparent"
-                ItemContainerStyle="{StaticResource WorkspaceTabItemStyle}"
-                SelectionChanged="WorkspaceTabs_SelectionChanged">
-    <TabItem Header="进程管理">
-    <Grid Margin="0,12,0,0">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <TabControl x:Name="WorkspaceTabs" SelectedIndex="0"
+                    Style="{StaticResource TopBarTabControlStyle}"
+                    ItemContainerStyle="{StaticResource WorkspaceTabItemStyle}"
+                    SelectionChanged="WorkspaceTabs_SelectionChanged">
+            <TabItem Header="进程管理">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-        <!-- 工具栏 -->
-        <Border Grid.Row="0"
-                Background="White"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="14"
-                Margin="0,0,0,12">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                    <Button x:Name="RefreshProcessButton" Style="{StaticResource PrimaryButtonStyle}"
-                            MinWidth="92"
-                            Margin="0,0,8,0"
-                            Content="刷新"
-                            Click="RefreshButton_Click" />
-                    <Button x:Name="KillSelectedButton"
-                            Style="{StaticResource DangerButtonStyle}"
-                            MinWidth="112"
-                            Margin="0,0,8,0"
-                            Content="结束选中"
-                            Click="KillSelectedButton_Click" />
-                    <Button x:Name="KillAllButton" Style="{StaticResource BaseButtonStyle}"
-                            MinWidth="140"
-                            Margin="0,0,8,0"
-                            Content="结束当前列表进程"
-                            Click="KillAllButton_Click" />
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock Style="{StaticResource FilterLabelStyle}"
-                               Margin="0,0,10,0"
-                               Text="筛选" />
-                    <ComboBox x:Name="ProcessFilterComboBox"
-                              Style="{StaticResource ModernComboBoxStyle}"
-                              Height="34"
-                              MinWidth="180"
-                              DisplayMemberPath="DisplayName"
-                              HorizontalContentAlignment="Left"
-                              IsTextSearchEnabled="True"
-                              ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}"
-                              ItemsSource="{Binding ProcessFilterOptions}"
-                              SelectedValuePath="NormalizedName"
-                              VerticalAlignment="Center"
-                              VerticalContentAlignment="Center"
-                              SelectionChanged="ProcessFilterComboBox_SelectionChanged" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
+                    <!-- 进程列表 -->
+                    <DataGrid x:Name="ProcessGrid"
+                              Grid.Row="0"
+                              Style="{StaticResource ModernDataGridStyle}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              EnableColumnVirtualization="True"
+                              EnableRowVirtualization="True"
+                              IsReadOnly="True"
+                              ItemsSource="{Binding Processes}"
+                              SelectionMode="Extended"
+                              SelectionUnit="FullRow"
+                              GridLinesVisibility="Horizontal"
+                              HeadersVisibility="Column"
+                              BorderThickness="0"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              PreviewMouseRightButtonDown="ProcessGrid_PreviewMouseRightButtonDown"
+                              Sorting="ProcessGrid_Sorting"
+                              SelectionChanged="ProcessGrid_SelectionChanged">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="ProcessKillMenuItem" Header="结束该进程"
+                                          Click="KillSingleMenuItem_Click" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="进程名" Binding="{Binding Name}" Width="120" />
+                            <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="70" />
+                            <DataGridTextColumn Header="会话" Binding="{Binding SessionId}" Width="60" />
+                            <DataGridTextColumn Header="内存" Binding="{Binding MemoryDisplay}" SortMemberPath="MemoryBytes" Width="90" />
+                            <DataGridTextColumn Header="线程" Binding="{Binding ThreadCount}" SortMemberPath="ThreadCountValue" Width="60" />
+                            <DataGridTextColumn Header="启动时间" Binding="{Binding StartTimeDisplay}" Width="140" />
+                            <DataGridTextColumn Header="窗口标题"
+                                                Binding="{Binding MainWindowTitle}"
+                                                ElementStyle="{StaticResource TrimmedCellTextStyle}"
+                                                Width="170" />
+                            <DataGridTextColumn Header="可执行路径"
+                                                Binding="{Binding ProcessPath}"
+                                                ElementStyle="{StaticResource TrimmedCellTextStyle}"
+                                                Width="220" />
+                            <DataGridTemplateColumn Header="命令行" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding CommandLine}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTipService.ShowDuration="60000">
+                                            <TextBlock.ToolTip>
+                                                <ToolTip MaxWidth="760"
+                                                         Placement="Mouse"
+                                                         DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                    <TextBlock MaxWidth="740"
+                                                               Text="{Binding CommandLine}"
+                                                               TextWrapping="Wrap" />
+                                                </ToolTip>
+                                            </TextBlock.ToolTip>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
 
-        <!-- 进程列表 -->
-        <Border Grid.Row="1"
-                Background="White"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                ClipToBounds="True">
-            <DataGrid x:Name="ProcessGrid"
-                      Style="{StaticResource ModernDataGridStyle}"
-                      AutoGenerateColumns="False"
-                      CanUserAddRows="False"
-                      CanUserDeleteRows="False"
-                      EnableColumnVirtualization="True"
-                      EnableRowVirtualization="True"
-                      IsReadOnly="True"
-                      ItemsSource="{Binding Processes}"
-                      SelectionMode="Extended"
-                      SelectionUnit="FullRow"
-                      GridLinesVisibility="Horizontal"
-                      HeadersVisibility="Column"
-                      BorderThickness="0"
-                      VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.VirtualizationMode="Recycling"
-                      PreviewMouseRightButtonDown="ProcessGrid_PreviewMouseRightButtonDown"
-                      Sorting="ProcessGrid_Sorting"
-                      SelectionChanged="ProcessGrid_SelectionChanged">
-                <DataGrid.ContextMenu>
-                    <ContextMenu Background="White"
-                                 BorderBrush="{StaticResource BorderBrush}"
-                                 BorderThickness="1"
-                                 Padding="4">
-                        <MenuItem x:Name="ProcessKillMenuItem" Header="结束该进程"
-                                  Click="KillSingleMenuItem_Click"
-                                  Foreground="{StaticResource TextPrimaryBrush}"
-                                  Padding="14,8" />
-                    </ContextMenu>
-                </DataGrid.ContextMenu>
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="进程名" Binding="{Binding Name}" Width="130" />
-                    <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="80" />
-                    <DataGridTextColumn Header="会话" Binding="{Binding SessionId}" Width="70" />
-                    <DataGridTextColumn Header="内存" Binding="{Binding MemoryDisplay}" SortMemberPath="MemoryBytes" Width="100" />
-                    <DataGridTextColumn Header="线程" Binding="{Binding ThreadCount}" SortMemberPath="ThreadCountValue" Width="70" />
-                    <DataGridTextColumn Header="启动时间" Binding="{Binding StartTimeDisplay}" Width="160" />
-                    <DataGridTextColumn Header="窗口标题"
-                                        Binding="{Binding MainWindowTitle}"
-                                        ElementStyle="{StaticResource TrimmedCellTextStyle}"
-                                        Width="190" />
-                    <DataGridTextColumn Header="可执行路径"
-                                        Binding="{Binding ProcessPath}"
-                                        ElementStyle="{StaticResource TrimmedCellTextStyle}"
-                                        Width="260" />
-                    <DataGridTemplateColumn Header="命令行" Width="*">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding CommandLine}"
-                                           TextTrimming="CharacterEllipsis"
-                                           ToolTipService.ShowDuration="60000">
-                                    <TextBlock.ToolTip>
-                                        <ToolTip MaxWidth="760"
-                                                 Placement="Mouse"
-                                                 DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                            <TextBlock MaxWidth="740"
-                                                       Text="{Binding CommandLine}"
-                                                       TextWrapping="Wrap" />
-                                        </ToolTip>
-                                    </TextBlock.ToolTip>
-                                </TextBlock>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
+                    <!-- 状态栏 -->
+                    <Border Grid.Row="1"
+                            Background="{StaticResource TopBarBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="10,4">
+                        <DockPanel LastChildFill="False">
+                            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                                <Ellipse Width="6"
+                                         Height="6"
+                                         Fill="{StaticResource SuccessBrush}"
+                                         VerticalAlignment="Center"
+                                         Margin="0,0,7,0" />
+                                <TextBlock x:Name="ProcessCountTextBlock"
+                                           FontFamily="Segoe UI, Microsoft YaHei UI"
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                                <TextBlock FontFamily="Segoe UI, Microsoft YaHei UI"
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center"
+                                           Margin="0,0,6,0"
+                                           Text="最近结果：" />
+                                <TextBlock x:Name="LastResultTextBlock"
+                                           FontFamily="Segoe UI, Microsoft YaHei UI"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource PrimaryBrush}"
+                                           VerticalAlignment="Center"
+                                           Text="就绪" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="端口查询">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-        <!-- 状态栏 -->
-        <Border Grid.Row="2"
-                Background="White"
-                BorderBrush="{StaticResource BorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Padding="14,10"
-                Margin="0,12,0,0">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                    <Ellipse Width="8"
-                             Height="8"
-                             Fill="{StaticResource SuccessBrush}"
-                             VerticalAlignment="Center"
-                             Margin="0,0,8,0" />
-                    <TextBlock x:Name="ProcessCountTextBlock"
-                               FontFamily="Segoe UI, Microsoft YaHei UI"
-                               FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <TextBlock FontFamily="Segoe UI, Microsoft YaHei UI"
-                               FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,6,0"
-                               Text="最近结果：" />
-                    <TextBlock x:Name="LastResultTextBlock"
-                               FontFamily="Segoe UI, Microsoft YaHei UI"
-                               FontSize="12"
-                               FontWeight="SemiBold"
-                               Foreground="{StaticResource PrimaryBrush}"
-                               VerticalAlignment="Center"
-                               Text="就绪" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
-    </Grid>
-    </TabItem>
-    <TabItem Header="端口查询">
-        <Grid Margin="0,12,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="12" Margin="0,0,0,12">
-                <StackPanel>
-                    <DockPanel LastChildFill="False">
-                        <CheckBox x:Name="PortAutoRefreshCheckBox" DockPanel.Dock="Right" Content="自动刷新" IsChecked="True"
-                                  FontFamily="Segoe UI, Microsoft YaHei UI" FontSize="13" VerticalAlignment="Center" Margin="16,0,0,0"
-                                  Foreground="{StaticResource TextSecondaryBrush}" ToolTip="每 3 秒刷新当前页"
-                                  Checked="PortAutoRefresh_Changed" Unchecked="PortAutoRefresh_Changed" />
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                        <TextBlock Text="端口" Style="{StaticResource FilterLabelStyle}" Margin="0,0,8,0" />
-                        <Grid Width="140" Margin="0,0,12,0">
-                            <TextBox x:Name="PortInputTextBox" MaxLength="12" Style="{StaticResource ModernTextBoxStyle}"
-                                     ToolTip="端口留空查询全部；输入 1–65535 的整数可筛选，按 Enter 查询"
-                                     TextChanged="PortConditions_Changed" KeyDown="PortInput_KeyDown" />
-                            <TextBlock Text="留空查询全部" IsHitTestVisible="False" Margin="11,0,0,0" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Text, ElementName=PortInputTextBox}" Value="">
-                                                <Setter Property="Visibility" Value="Visible" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Grid>
-                        <TextBlock Text="协议" Style="{StaticResource FilterLabelStyle}" Margin="0,0,8,0" />
-                        <ComboBox x:Name="PortProtocolComboBox" Width="90" Height="34" SelectedIndex="0" Margin="0,0,12,0"
-                                  Style="{StaticResource ModernComboBoxStyle}"
-                                  ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}"
-                                  SelectionChanged="PortConditions_Changed">
-                            <ComboBoxItem Content="全部" />
-                            <ComboBoxItem Content="TCP" />
-                            <ComboBoxItem Content="UDP" />
-                        </ComboBox>
-                        <Button x:Name="PortQueryButton" Content="查询" MinWidth="70" Padding="12,6" Margin="0,0,8,0"
-                                Style="{StaticResource PrimaryButtonStyle}" Click="PortQueryButton_Click" />
-                        <Button x:Name="PortClearButton" Content="清除" MinWidth="70" Padding="12,6" Margin="0,0,8,0"
-                                Style="{StaticResource BaseButtonStyle}" Click="PortClearButton_Click" />
-                        <Button x:Name="KillPortSelectedButton" Content="结束选中" IsEnabled="False" Padding="12,6"
-                                Style="{StaticResource DangerButtonStyle}" Click="KillPortSelectedButton_Click" />
-                        </StackPanel>
-                    </DockPanel>
-                    <TextBlock x:Name="PortInputErrorTextBlock" Foreground="{StaticResource DangerBrush}"
-                               FontSize="12" Margin="40,3,0,0">
+                    <!-- 输入错误提示：无内容时自动折叠，不占空间 -->
+                    <TextBlock x:Name="PortInputErrorTextBlock" Grid.Row="0" Foreground="#F87171" Background="#2A1F22"
+                               FontSize="12" Padding="10,4">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Style.Triggers>
@@ -255,70 +176,149 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                </StackPanel>
-            </Border>
-            <Border Grid.Row="1" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                    CornerRadius="8" ClipToBounds="True">
-                <DataGrid x:Name="PortProcessGrid" Style="{StaticResource ModernDataGridStyle}" BorderThickness="0"
-                          ItemsSource="{Binding PortProcesses}" AutoGenerateColumns="False" IsReadOnly="True"
-                          CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Extended"
-                          SelectionUnit="FullRow" EnableRowVirtualization="True" EnableColumnVirtualization="True"
-                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
-                          SelectionChanged="PortGrid_SelectionChanged" PreviewMouseRightButtonDown="PortGrid_PreviewMouseRightButtonDown"
-                          MouseDoubleClick="PortGrid_MouseDoubleClick">
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernRowStyle}">
-                            <Setter Property="ToolTip" Value="{Binding OperationHint}" />
-                        </Style>
-                    </DataGrid.RowStyle>
-                    <DataGrid.ContextMenu>
-                        <ContextMenu Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="4">
-                            <MenuItem x:Name="PortKillMenuItem" Header="结束选中进程" Click="KillPortSelectedButton_Click" Padding="14,8" IsEnabled="False" />
-                            <MenuItem x:Name="PortViewDetailsMenuItem" Header="查看详情" Click="ViewPortDetails_Click" Padding="14,8" IsEnabled="False" />
-                            <Separator />
-                            <MenuItem Header="复制 PID" Tag="Pid" Click="CopyPortInfo_Click" Padding="14,8" />
-                            <MenuItem Header="复制可执行路径" Tag="Path" Click="CopyPortInfo_Click" Padding="14,8" />
-                            <MenuItem Header="复制命令行" Tag="CommandLine" Click="CopyPortInfo_Click" Padding="14,8" />
-                            <MenuItem Header="复制选中信息" Tag="All" Click="CopyPortInfo_Click" Padding="14,8" />
-                        </ContextMenu>
-                    </DataGrid.ContextMenu>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="进程名" Binding="{Binding Name}" Width="220" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
-                        <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="100" />
-                        <DataGridTextColumn Header="端口" Binding="{Binding Port}" Width="100" />
-                        <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="90" />
-                        <DataGridTextColumn Header="本地地址" Binding="{Binding LocalAddress}" Width="*" MinWidth="210" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Border>
-            <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
-                    CornerRadius="8" Padding="14,10" Margin="0,12,0,0">
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="PortCountTextBlock" Text="0 个进程 · 0 项 · 已选 0 项" FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,20,0" />
-                    <Button x:Name="PortResultDetailsButton" Grid.Column="1" IsEnabled="False" HorizontalContentAlignment="Right"
-                            Click="PortOperationDetailsButton_Click" ToolTipService.ShowOnDisabled="True">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
-                                <Setter Property="Cursor" Value="Hand" />
-                                <Setter Property="Template"><Setter.Value>
-                                    <ControlTemplate TargetType="Button"><ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" /></ControlTemplate>
-                                </Setter.Value></Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-                                        <Setter Property="Cursor" Value="Arrow" />
-                                    </Trigger>
-                                </Style.Triggers>
+
+                    <DataGrid x:Name="PortProcessGrid" Grid.Row="1" Style="{StaticResource ModernDataGridStyle}" BorderThickness="0"
+                              ItemsSource="{Binding PortProcesses}" AutoGenerateColumns="False" IsReadOnly="True"
+                              CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Extended"
+                              SelectionUnit="FullRow" EnableRowVirtualization="True" EnableColumnVirtualization="True"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                              SelectionChanged="PortGrid_SelectionChanged" PreviewMouseRightButtonDown="PortGrid_PreviewMouseRightButtonDown"
+                              MouseDoubleClick="PortGrid_MouseDoubleClick">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow" BasedOn="{StaticResource ModernRowStyle}">
+                                <Setter Property="ToolTip" Value="{Binding OperationHint}" />
                             </Style>
-                        </Button.Style>
-                        <TextBlock x:Name="PortLastResultTextBlock" Text="尚未查询" FontSize="12" TextTrimming="CharacterEllipsis" />
-                    </Button>
+                        </DataGrid.RowStyle>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem x:Name="PortKillMenuItem" Header="结束选中进程" Click="KillPortSelectedButton_Click" IsEnabled="False" />
+                                <MenuItem x:Name="PortViewDetailsMenuItem" Header="查看详情" Click="ViewPortDetails_Click" IsEnabled="False" />
+                                <Separator />
+                                <MenuItem Header="复制 PID" Tag="Pid" Click="CopyPortInfo_Click" />
+                                <MenuItem Header="复制可执行路径" Tag="Path" Click="CopyPortInfo_Click" />
+                                <MenuItem Header="复制命令行" Tag="CommandLine" Click="CopyPortInfo_Click" />
+                                <MenuItem Header="复制选中信息" Tag="All" Click="CopyPortInfo_Click" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="进程名" Binding="{Binding Name}" Width="220" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                            <DataGridTextColumn Header="PID" Binding="{Binding Id}" Width="90" />
+                            <DataGridTextColumn Header="端口" Binding="{Binding Port}" Width="90" />
+                            <DataGridTextColumn Header="协议" Binding="{Binding Protocol}" Width="80" />
+                            <DataGridTextColumn Header="本地地址" Binding="{Binding LocalAddress}" Width="*" MinWidth="210" ElementStyle="{StaticResource TrimmedCellTextStyle}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <Border Grid.Row="2" Background="{StaticResource TopBarBrush}" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,1,0,0" Padding="10,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="PortCountTextBlock" Text="0 个进程 · 0 项 · 已选 0 项" FontSize="12"
+                                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,20,0" />
+                            <Button x:Name="PortResultDetailsButton" Grid.Column="1" IsEnabled="False" HorizontalContentAlignment="Right"
+                                    Click="PortOperationDetailsButton_Click" ToolTipService.ShowOnDisabled="True">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Template"><Setter.Value>
+                                            <ControlTemplate TargetType="Button"><ContentPresenter HorizontalAlignment="Right" VerticalAlignment="Center" /></ControlTemplate>
+                                        </Setter.Value></Setter>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                                <Setter Property="Cursor" Value="Arrow" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock x:Name="PortLastResultTextBlock" Text="尚未查询" FontSize="12" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                        </Grid>
+                    </Border>
                 </Grid>
-            </Border>
-        </Grid>
-    </TabItem>
-    </TabControl>
+            </TabItem>
+        </TabControl>
+
+        <!-- 进程管理工具栏（叠放在顶栏右侧） -->
+        <StackPanel x:Name="ProcessToolbarPanel" Style="{StaticResource ProcessToolbarStyle}">
+            <Button x:Name="RefreshProcessButton" Style="{StaticResource PrimaryButtonStyle}"
+                    VerticalAlignment="Center"
+                    MinWidth="60"
+                    Margin="0,0,6,0"
+                    Content="刷新"
+                    Click="RefreshButton_Click" />
+            <Button x:Name="KillSelectedButton"
+                    Style="{StaticResource DangerButtonStyle}"
+                    VerticalAlignment="Center"
+                    MinWidth="76"
+                    Margin="0,0,6,0"
+                    Content="结束选中"
+                    Click="KillSelectedButton_Click" />
+            <Button x:Name="KillAllButton" Style="{StaticResource BaseButtonStyle}"
+                    VerticalAlignment="Center"
+                    MinWidth="104"
+                    Margin="0,0,14,0"
+                    Content="结束当前列表进程"
+                    Click="KillAllButton_Click" />
+            <TextBlock Style="{StaticResource FilterLabelStyle}"
+                       Margin="0,0,8,0"
+                       Text="筛选" />
+            <ComboBox x:Name="ProcessFilterComboBox"
+                      Style="{StaticResource ModernComboBoxStyle}"
+                      Height="28"
+                      MinWidth="150"
+                      DisplayMemberPath="DisplayName"
+                      HorizontalContentAlignment="Left"
+                      IsTextSearchEnabled="True"
+                      ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}"
+                      ItemsSource="{Binding ProcessFilterOptions}"
+                      SelectedValuePath="NormalizedName"
+                      VerticalAlignment="Center"
+                      VerticalContentAlignment="Center"
+                      SelectionChanged="ProcessFilterComboBox_SelectionChanged" />
+        </StackPanel>
+
+        <!-- 端口查询工具栏（叠放在顶栏右侧） -->
+        <StackPanel x:Name="PortToolbarPanel" Style="{StaticResource PortToolbarStyle}">
+            <TextBlock Text="端口" Style="{StaticResource FilterLabelStyle}" Margin="0,0,6,0" />
+            <Grid Width="120" Margin="0,0,10,0" VerticalAlignment="Center">
+                <TextBox x:Name="PortInputTextBox" MaxLength="12" Style="{StaticResource ModernTextBoxStyle}"
+                         ToolTip="端口留空查询全部；输入 1–65535 的整数可筛选，按 Enter 查询"
+                         TextChanged="PortConditions_Changed" KeyDown="PortInput_KeyDown" />
+                <TextBlock Text="留空查询全部" IsHitTestVisible="False" Margin="9,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=PortInputTextBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <TextBlock Text="协议" Style="{StaticResource FilterLabelStyle}" Margin="0,0,6,0" />
+            <ComboBox x:Name="PortProtocolComboBox" Width="76" Height="28" SelectedIndex="0" Margin="0,0,10,0" VerticalAlignment="Center"
+                      Style="{StaticResource ModernComboBoxStyle}"
+                      ItemContainerStyle="{StaticResource ModernComboBoxItemStyle}"
+                      SelectionChanged="PortConditions_Changed">
+                <ComboBoxItem Content="全部" />
+                <ComboBoxItem Content="TCP" />
+                <ComboBoxItem Content="UDP" />
+            </ComboBox>
+            <Button x:Name="PortQueryButton" Content="查询" MinWidth="56" Margin="0,0,6,0" VerticalAlignment="Center"
+                    Style="{StaticResource PrimaryButtonStyle}" Click="PortQueryButton_Click" />
+            <Button x:Name="PortClearButton" Content="清除" MinWidth="56" Margin="0,0,6,0" VerticalAlignment="Center"
+                    Style="{StaticResource BaseButtonStyle}" Click="PortClearButton_Click" />
+            <Button x:Name="KillPortSelectedButton" Content="结束选中" MinWidth="70" IsEnabled="False" VerticalAlignment="Center"
+                    Style="{StaticResource DangerButtonStyle}" Click="KillPortSelectedButton_Click" />
+            <CheckBox x:Name="PortAutoRefreshCheckBox" Content="自动刷新" IsChecked="True"
+                      Style="{StaticResource ModernCheckBoxStyle}" VerticalAlignment="Center" Margin="14,0,0,0"
+                      ToolTip="每 3 秒刷新当前页"
+                      Checked="PortAutoRefresh_Changed" Unchecked="PortAutoRefresh_Changed" />
+        </StackPanel>
+    </Grid>
 </Window>

@@ -31,12 +31,12 @@ namespace ProcessesKiller
         private const string AllProcessFilterDisplayName = "全部";
         private static readonly string[] FallbackProcessColors =
         {
-            "#7C3AED",
-            "#BE123C",
-            "#0F766E",
-            "#A16207",
-            "#4338CA",
-            "#0369A1"
+            "#A78BFA",
+            "#FB7185",
+            "#2DD4BF",
+            "#FACC15",
+            "#818CF8",
+            "#38BDF8"
         };
 
         private readonly ObservableCollection<ProcessInfo> _processes = new ObservableCollection<ProcessInfo>();
@@ -75,6 +75,7 @@ namespace ProcessesKiller
         public MainWindow()
         {
             InitializeComponent();
+            WindowTheme.Apply(this);
             DataContext = this;
             _isUiReady = true;
             EnableLiveSorting();
@@ -789,27 +790,27 @@ namespace ProcessesKiller
         {
             if (string.Equals(normalizedName, "java", StringComparison.OrdinalIgnoreCase))
             {
-                return "#0B7A32";
+                return "#4ADE80";
             }
 
             if (string.Equals(normalizedName, "javaw", StringComparison.OrdinalIgnoreCase))
             {
-                return "#1D4ED8";
+                return "#60A5FA";
             }
 
             if (string.Equals(normalizedName, "explorer", StringComparison.OrdinalIgnoreCase))
             {
                 if (explorerKind == ExplorerProcessKind.Shell)
                 {
-                    return "#B45309";
+                    return "#FBBF24";
                 }
 
                 if (explorerKind == ExplorerProcessKind.Additional)
                 {
-                    return "#0891B2";
+                    return "#22D3EE";
                 }
 
-                return "#6B7280";
+                return "#9CA3AF";
             }
 
             var index = GetStableColorIndex(normalizedName, FallbackProcessColors.Length);

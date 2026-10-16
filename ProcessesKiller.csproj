@@ -73,6 +73,7 @@
     <Compile Include="PortQueryService.cs" />
     <Compile Include="ProcessTerminationService.cs" />
     <Compile Include="ProcessDialogs.cs" />
+    <Compile Include="WindowTheme.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

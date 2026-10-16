@@ -14,10 +14,12 @@ namespace ProcessesKiller
                 Title = title, Width = 660, Height = 420, MinWidth = 460, MinHeight = 280,
                 FontFamily = new FontFamily("Segoe UI, Microsoft YaHei UI"), FontSize = 13,
                 Background = (Brush)Application.Current.FindResource("BackgroundBrush"),
+                Foreground = (Brush)Application.Current.FindResource("TextPrimaryBrush"),
                 WindowStartupLocation = owner.IsVisible ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
                 ShowInTaskbar = false
             };
             if (owner.IsVisible) dialog.Owner = owner;
+            WindowTheme.Apply(dialog);
             var layout = new Grid { Margin = new Thickness(16) };
             layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -27,7 +29,9 @@ namespace ProcessesKiller
             {
                 Name = "DialogText", Text = text, IsReadOnly = true, TextWrapping = TextWrapping.Wrap,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Padding = new Thickness(12),
-                Background = Brushes.White, BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
+                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
+                Foreground = (Brush)Application.Current.FindResource("TextPrimaryBrush"),
+                BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1), VerticalContentAlignment = VerticalAlignment.Top
             };
             Grid.SetRow(contents, 1);

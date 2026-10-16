@@ -229,7 +229,7 @@ namespace ProcessesKiller
                 catch (Exception)
                 {
                     info = new ProcessInfo { Id = pid, Name = "已退出/不可用", NormalizedName = string.Empty,
-                        StartTimeDisplay = MissingText, ProcessPath = MissingText, CommandLine = MissingText, RowForeground = "#6B7280" };
+                        StartTimeDisplay = MissingText, ProcessPath = MissingText, CommandLine = MissingText, RowForeground = "#9CA3AF" };
                 }
                 infoById.Add(pid, info);
                 if (!info.StartTimeUtcTicks.HasValue || info.ProcessPath == MissingText || info.CommandLine == MissingText)
