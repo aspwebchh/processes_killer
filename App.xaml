@@ -539,7 +539,7 @@
                     <ControlTemplate TargetType="{x:Type TextBox}">
                         <Border x:Name="textBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+                            <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="textBorder" Property="BorderBrush" Value="{StaticResource TextSecondaryBrush}" /></Trigger>

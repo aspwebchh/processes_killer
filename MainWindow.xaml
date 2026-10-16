@@ -286,7 +286,7 @@
                 <TextBox x:Name="PortInputTextBox" MaxLength="12" Style="{StaticResource ModernTextBoxStyle}"
                          ToolTip="端口留空查询全部；输入 1–65535 的整数可筛选，按 Enter 查询"
                          TextChanged="PortConditions_Changed" KeyDown="PortInput_KeyDown" />
-                <TextBlock Text="留空查询全部" IsHitTestVisible="False" Margin="9,0,0,0" VerticalAlignment="Center"
+                <TextBlock Text="留空查询全部" IsHitTestVisible="False" Margin="10,0,0,0" VerticalAlignment="Center"
                            Foreground="{StaticResource TextSecondaryBrush}" FontSize="12">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
