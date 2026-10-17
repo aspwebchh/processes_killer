@@ -193,11 +193,6 @@
                             <ContextMenu>
                                 <MenuItem x:Name="PortKillMenuItem" Header="结束选中进程" Click="KillPortSelectedButton_Click" IsEnabled="False" />
                                 <MenuItem x:Name="PortViewDetailsMenuItem" Header="查看详情" Click="ViewPortDetails_Click" IsEnabled="False" />
-                                <Separator />
-                                <MenuItem Header="复制 PID" Tag="Pid" Click="CopyPortInfo_Click" />
-                                <MenuItem Header="复制可执行路径" Tag="Path" Click="CopyPortInfo_Click" />
-                                <MenuItem Header="复制命令行" Tag="CommandLine" Click="CopyPortInfo_Click" />
-                                <MenuItem Header="复制选中信息" Tag="All" Click="CopyPortInfo_Click" />
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
@@ -311,14 +306,8 @@
             </ComboBox>
             <Button x:Name="PortQueryButton" Content="查询" MinWidth="56" Margin="0,0,6,0" VerticalAlignment="Center"
                     Style="{StaticResource PrimaryButtonStyle}" Click="PortQueryButton_Click" />
-            <Button x:Name="PortClearButton" Content="清除" MinWidth="56" Margin="0,0,6,0" VerticalAlignment="Center"
-                    Style="{StaticResource BaseButtonStyle}" Click="PortClearButton_Click" />
             <Button x:Name="KillPortSelectedButton" Content="结束选中" MinWidth="70" IsEnabled="False" VerticalAlignment="Center"
                     Style="{StaticResource DangerButtonStyle}" Click="KillPortSelectedButton_Click" />
-            <CheckBox x:Name="PortAutoRefreshCheckBox" Content="自动刷新" IsChecked="True"
-                      Style="{StaticResource ModernCheckBoxStyle}" VerticalAlignment="Center" Margin="14,0,0,0"
-                      ToolTip="每 3 秒刷新当前页"
-                      Checked="PortAutoRefresh_Changed" Unchecked="PortAutoRefresh_Changed" />
         </StackPanel>
     </Grid>
 </Window>

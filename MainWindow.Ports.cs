@@ -101,32 +101,6 @@ namespace ProcessesKiller
             RefreshPortResults(true);
         }
 
-        private void PortClearButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isTerminating || _isConfirmingPortKill) return;
-            _portVersion++;
-            _queriedPort = null;
-            _hasPortQuery = false;
-            _portConditionsDirty = false;
-            _portQueryComplete = false;
-            _portRefreshRequested = false;
-            _portReportNextQuery = false;
-            _pendingPortOperationText = null;
-            _portProcesses.Clear();
-            PortInputTextBox.Clear();
-            PortInputErrorTextBlock.Text = string.Empty;
-            _portState = "尚未查询";
-            _portLastResult = "已清除查询";
-            _portOperationDetails = null;
-            UpdatePortStatus();
-            PortInputTextBox.Focus();
-        }
-
-        private void PortAutoRefresh_Changed(object sender, RoutedEventArgs e)
-        {
-            if (_isUiReady && PortAutoRefreshCheckBox.IsChecked == true) RefreshPortResults(false);
-        }
-
         private async void RefreshPortResults(bool manual)
         {
             await RefreshPortResultsAsync(manual, null);
@@ -377,25 +351,6 @@ namespace ProcessesKiller
             PortProcessGrid.CurrentItem = row.Item;
         }
 
-        private void CopyPortInfo_Click(object sender, RoutedEventArgs e)
-        {
-            var rows = PortProcessGrid.SelectedItems.Cast<PortProcessRow>().ToList();
-            if (rows.Count == 0) return;
-            var item = sender as MenuItem;
-            var field = item == null ? "All" : item.Tag as string;
-            string copied;
-            if (field == "Pid") copied = string.Join(Environment.NewLine, rows.Select(row => row.Id.ToString(CultureInfo.InvariantCulture)).Distinct());
-            else if (field == "Path") copied = string.Join(Environment.NewLine, rows.Select(row => row.Process.ProcessPath).Distinct());
-            else if (field == "CommandLine") copied = string.Join(Environment.NewLine, rows.Select(row => row.Process.CommandLine).Distinct());
-            else copied = "协议\tIP版本\t本地地址\t端口\t状态\t进程名\tPID\t启动时间\t路径\t命令行" + Environment.NewLine
-                    + string.Join(Environment.NewLine, rows.Select(row => string.Join("\t", row.Protocol, row.IpVersion, row.LocalAddress,
-                        row.Port.ToString(CultureInfo.InvariantCulture), row.State, row.Name, row.Id.ToString(CultureInfo.InvariantCulture),
-                        row.Process.StartTimeDisplay, row.Process.ProcessPath, row.Process.CommandLine)));
-            try { Clipboard.SetText(copied); _portLastResult = "已复制选中信息"; }
-            catch (Exception ex) { _portLastResult = "复制失败：" + ex.Message; }
-            UpdatePortStatus();
-        }
-
         private void PortOperationDetailsButton_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(_portOperationDetails))
@@ -426,7 +381,6 @@ namespace ProcessesKiller
             PortInputTextBox.IsEnabled = !busy;
             PortProtocolComboBox.IsEnabled = !busy;
             PortQueryButton.IsEnabled = !busy;
-            PortClearButton.IsEnabled = !busy;
             var canKill = !busy && !_isQueryingPort && !_portConditionsDirty && _portQueryComplete
                 && PortProcessGrid.SelectedItems.Cast<PortProcessRow>().Any(row => row.CanTerminate);
             KillPortSelectedButton.IsEnabled = canKill;

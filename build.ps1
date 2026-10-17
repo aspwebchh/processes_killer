@@ -158,6 +158,10 @@ $msbuildArgs = @(
 )
 
 & $msbuild @msbuildArgs
+if ($LASTEXITCODE -ne 0 -and -not $Clean -and -not $Rebuild) {
+    Start-Sleep -Milliseconds 500
+    & $msbuild @msbuildArgs
+}
 if ($LASTEXITCODE -ne 0) {
     throw "构建失败，MSBuild 返回错误码: $LASTEXITCODE"
 }

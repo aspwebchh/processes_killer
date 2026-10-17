@@ -49,6 +49,7 @@ internal static class WindowTests
             CheckComboAlignment(Control<ComboBox>("ProcessFilterComboBox"));
             Control<TabControl>("WorkspaceTabs").SelectedIndex = 1;
             Check(!Field<bool>("_hasPortQuery") && _window.PortProcesses.Count == 0, "first tab visit does not query all ports");
+            RenderLayout(args[0], 1200, 630, "layout-empty.png");
             Control<TextBox>("PortInputTextBox").Text = "65536";
             Call("SubmitPortQuery");
             Check(Control<TextBlock>("PortInputErrorTextBlock").Text.Contains("1–65535"), "inline invalid-port message");
@@ -85,8 +86,6 @@ internal static class WindowTests
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 0;
             Call("SubmitPortQuery"); WaitPort();
             RenderLayout(args[0], 1200, 630, "layout-all-ports.png");
-            Call("PortClearButton_Click", null, new RoutedEventArgs());
-            RenderLayout(args[0], 1200, 630, "layout-empty.png");
             Control<TextBox>("PortInputTextBox").Text = " " + port + " ";
             Call("SubmitPortQuery");
             WaitPort();
@@ -128,20 +127,21 @@ internal static class WindowTests
             Call("SubmitPortQuery"); WaitPort();
             RenderLayout(args[0], 1200, 630, "layout-default.png");
             CheckComboAlignment(Control<ComboBox>("PortProtocolComboBox"));
-            Check(grid.Columns.Count == 5 && _window.FindName("PortDetailsExpander") == null && _window.FindName("CopyPortInfoButton") == null,
-                "compact page has five columns and no permanent details or copy button");
+            Check(grid.Columns.Count == 5 && grid.ContextMenu.Items.Count == 2 && _window.FindName("PortDetailsExpander") == null && _window.FindName("CopyPortInfoButton") == null,
+                "compact page has five columns, two context menu items, and no permanent details or copy button");
             CheckDetailsDialog(_window.PortProcesses.First(row => row.Id == fixture.Id));
             CheckConfirmationDialog();
             RenderLayout(args[0], 900, 430, "layout-minimum.png");
             Check(grid.ActualHeight >= 200, "minimum window leaves usable results grid");
             var root = (FrameworkElement)_window.Content;
+            var queryPosition = Control<Button>("PortQueryButton").TransformToAncestor(root).Transform(new Point());
             var killPosition = Control<Button>("KillPortSelectedButton").TransformToAncestor(root).Transform(new Point());
-            var autoPosition = Control<CheckBox>("PortAutoRefreshCheckBox").TransformToAncestor(root).Transform(new Point());
-            Check(killPosition.X + Control<Button>("KillPortSelectedButton").ActualWidth <= autoPosition.X, "single toolbar does not overlap at minimum width");
+            Check(_window.FindName("PortAutoRefreshCheckBox") == null && _window.FindName("PortClearButton") == null
+                && queryPosition.X + Control<Button>("PortQueryButton").ActualWidth <= killPosition.X,
+                "single toolbar has no clear or auto-refresh controls and does not overlap at minimum width");
             var originalService = GetField("_portQueryService");
-            Control<CheckBox>("PortAutoRefreshCheckBox").IsChecked = false;
             Call("RefreshTimer_Tick", null, EventArgs.Empty);
-            Check(!Field<bool>("_isQueryingPort"), "disabled auto-refresh does not query");
+            Check(!Field<bool>("_isQueryingPort"), "port tab does not auto-refresh on timer tick");
             SetQueryReader(originalService, false, false, true, port, fixture.Id);
             Refresh();
             Check(_window.PortProcesses.Count == 1 && !Field<bool>("_portQueryComplete") && Field<string>("_portState").Contains("查询不完整"), "partial query preserves known owner and warning");
@@ -157,13 +157,8 @@ internal static class WindowTests
             Control<TextBox>("PortInputTextBox").Text = (port + 1).ToString();
             Call("SubmitPortQuery"); WaitPort();
             Check(Field<string>("_portState").Contains((port + 1).ToString()) && _window.PortProcesses.Count == 0, "latest query wins over in-flight old query");
-            Call("SubmitPortQuery");
-            Call("PortClearButton_Click", null, new RoutedEventArgs()); WaitPort();
-            Check(_window.PortProcesses.Count == 0 && !Field<bool>("_hasPortQuery") && !GetNullablePort().HasValue && Field<string>("_portState").Contains("尚未查询"), "clear discards in-flight result");
-            Control<CheckBox>("PortAutoRefreshCheckBox").IsChecked = true;
             Call("RefreshTimer_Tick", null, EventArgs.Empty);
-            Check(!Field<bool>("_isQueryingPort"), "cleared query does not restart as all ports");
-            Control<CheckBox>("PortAutoRefreshCheckBox").IsChecked = false;
+            Check(!Field<bool>("_isQueryingPort"), "port tab does not restart on timer tick");
             SetField("_portQueryService", originalService);
             Control<TextBox>("PortInputTextBox").Text = string.Empty;
             Call("SubmitPortQuery"); WaitPort();

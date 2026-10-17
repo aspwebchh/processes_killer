@@ -105,7 +105,6 @@ namespace ProcessesKiller
         {
             if (_isTerminating || _isConfirmingPortKill || _isClosing) return;
             if (IsProcessTabActive) RefreshProcesses(null);
-            else if (PortAutoRefreshCheckBox.IsChecked == true) RefreshPortResults(false);
         }
 
         private void ProcessFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

@@ -12,6 +12,10 @@ Write-Output "Test executable: $testExe"
 $buildTool = & 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe' -latest -products '*' -requires Microsoft.Component.MSBuild -find 'MSBuild\**\Bin\MSBuild.exe' | Select-Object -First 1
 if (-not $buildTool) { throw 'Visual Studio MSBuild was not found.' }
 & $buildTool (Join-Path $repositoryRoot 'ProcessesKiller.csproj') /nologo /v:minimal /p:Configuration=Debug "/p:OutDir=$testOutput\" "/p:BaseIntermediateOutputPath=$testOutput\obj\" "/p:IntermediateOutputPath=$testOutput\obj\Debug\" /p:UseSharedCompilation=false
+if ($LASTEXITCODE -ne 0) {
+    Start-Sleep -Milliseconds 500
+    & $buildTool (Join-Path $repositoryRoot 'ProcessesKiller.csproj') /nologo /v:minimal /p:Configuration=Debug "/p:OutDir=$testOutput\" "/p:BaseIntermediateOutputPath=$testOutput\obj\" "/p:IntermediateOutputPath=$testOutput\obj\Debug\" /p:UseSharedCompilation=false
+}
 if ($LASTEXITCODE -ne 0) { throw 'Application test build failed.' }
 $windowTestExe = Join-Path $testOutput 'ProcessesKiller.WindowTests.exe'
 $wpfRuntime = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\WPF'
