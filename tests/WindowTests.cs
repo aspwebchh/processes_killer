@@ -65,20 +65,23 @@ internal static class WindowTests
             Control<TextBox>("PortInputTextBox").Text = string.Empty;
             Call("SubmitPortQuery"); WaitPort();
             Check(Field<bool>("_hasPortQuery") && !GetNullablePort().HasValue && Field<string>("_portState").Contains("全部端口"), "empty input starts all-port query");
-            Check(_window.PortProcesses.Count(row => row.Id == fixture.Id) == 4 && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 4,
-                "all-port query shows both fixtures on different ports");
+            Check(_window.PortProcesses.Count(row => row.Id == fixture.Id) == 2 && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 2
+                && _window.PortProcesses.Where(row => row.Id == fixture.Id).All(row => row.LocalAddress == "127.0.0.1, ::1" && row.IpVersion == "IPv4 + IPv6"),
+                "all-port query shows both fixtures on different ports with merged local addresses");
             Control<TextBox>("PortInputTextBox").Text = "   ";
             Call("SubmitPortQuery"); WaitPort();
             Check(Field<bool>("_hasPortQuery") && !GetNullablePort().HasValue && Control<TextBlock>("PortInputErrorTextBlock").Text == string.Empty, "whitespace input queries all");
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 1;
             Call("SubmitPortQuery"); WaitPort();
-            Check(_window.PortProcesses.All(row => row.Protocol == "TCP") && _window.PortProcesses.Count(row => row.Id == fixture.Id) == 2,
+            Check(_window.PortProcesses.All(row => row.Protocol == "TCP") && _window.PortProcesses.Count(row => row.Id == fixture.Id) == 1
+                && _window.PortProcesses.Single(row => row.Id == fixture.Id).LocalAddress == "127.0.0.1, ::1",
                 "all-port TCP filter; selected=" + Control<ComboBox>("PortProtocolComboBox").SelectedIndex + "; committed=" + GetField("_queriedProtocol")
                 + "; protocols=" + string.Join(",", _window.PortProcesses.Select(row => row.Protocol).Distinct())
                 + "; fixture rows=" + _window.PortProcesses.Count(row => row.Id == fixture.Id) + "; state=" + Field<string>("_portState"));
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 2;
             Call("SubmitPortQuery"); WaitPort();
-            Check(_window.PortProcesses.All(row => row.Protocol == "UDP") && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 2, "all-port UDP filter");
+            Check(_window.PortProcesses.All(row => row.Protocol == "UDP") && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 1
+                && _window.PortProcesses.Single(row => row.Id == otherFixture.Id).LocalAddress == "127.0.0.1, ::1", "all-port UDP filter");
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 0;
             Call("SubmitPortQuery"); WaitPort();
             RenderLayout(args[0], 1200, 630, "layout-all-ports.png");
@@ -87,7 +90,7 @@ internal static class WindowTests
             Control<TextBox>("PortInputTextBox").Text = " " + port + " ";
             Call("SubmitPortQuery");
             WaitPort();
-            Check(_window.PortProcesses.Count(row => row.Id == fixture.Id) == 4, "port page sees non-whitelisted fixture");
+            Check(_window.PortProcesses.Count(row => row.Id == fixture.Id) == 2, "port page sees non-whitelisted fixture");
             var grid = Control<DataGrid>("PortProcessGrid");
             grid.SelectedItem = _window.PortProcesses.First(row => row.Id == fixture.Id);
             Check(Control<Button>("KillPortSelectedButton").IsEnabled, "eligible selection can terminate");
@@ -117,10 +120,10 @@ internal static class WindowTests
             Control<TextBox>("PortInputTextBox").Text = port.ToString();
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 1;
             Call("SubmitPortQuery"); WaitPort();
-            Check(_window.PortProcesses.Count == 2 && _window.PortProcesses.All(row => row.Protocol == "TCP"), "UI TCP filter");
+            Check(_window.PortProcesses.Count == 1 && _window.PortProcesses.All(row => row.Protocol == "TCP" && row.LocalAddress == "127.0.0.1, ::1"), "UI TCP filter");
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 2;
             Call("SubmitPortQuery"); WaitPort();
-            Check(_window.PortProcesses.Count == 2 && _window.PortProcesses.All(row => row.Protocol == "UDP"), "UI UDP filter");
+            Check(_window.PortProcesses.Count == 1 && _window.PortProcesses.All(row => row.Protocol == "UDP" && row.LocalAddress == "127.0.0.1, ::1"), "UI UDP filter");
             Control<ComboBox>("PortProtocolComboBox").SelectedIndex = 0;
             Call("SubmitPortQuery"); WaitPort();
             RenderLayout(args[0], 1200, 630, "layout-default.png");
@@ -164,7 +167,7 @@ internal static class WindowTests
             SetField("_portQueryService", originalService);
             Control<TextBox>("PortInputTextBox").Text = string.Empty;
             Call("SubmitPortQuery"); WaitPort();
-            grid.SelectedItem = _window.PortProcesses.First(row => row.Id == fixture.Id && row.Protocol == "TCP" && row.IpVersion == "IPv4");
+            grid.SelectedItem = _window.PortProcesses.First(row => row.Id == fixture.Id && row.Protocol == "TCP");
             SetQueryReader(originalService, false, false, false, otherPort, fixture.Id, true);
             SetConfirmation((message, title) => true);
             Call("KillPortSelectedButton_Click", null, new RoutedEventArgs());
@@ -178,7 +181,7 @@ internal static class WindowTests
             Call("KillPortSelectedButton_Click", null, new RoutedEventArgs());
             WaitTermination();
             Check(fixture.HasExited && !otherFixture.HasExited && _window.PortProcesses.All(row => row.Id != fixture.Id)
-                && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 4, "all-port termination only ends selected fixture and requeries");
+                && _window.PortProcesses.Count(row => row.Id == otherFixture.Id) == 2, "all-port termination only ends selected fixture and requeries");
             Check(Field<string>("_portLastResult").Contains("请求 1 个，成功 1 个") && Control<Button>("PortResultDetailsButton").IsEnabled, "deduplicated operation result links to details");
             Control<TextBox>("PortInputTextBox").Text = port.ToString();
             Call("SubmitPortQuery"); WaitPort();

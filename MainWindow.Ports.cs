@@ -235,8 +235,18 @@ namespace ProcessesKiller
                 if (!info.StartTimeUtcTicks.HasValue || info.ProcessPath == MissingText || info.CommandLine == MissingText)
                     snapshot.HasUnavailableDetails = true;
             }
-            foreach (var endpoint in snapshot.Query.Endpoints)
-                snapshot.Rows.Add(new PortProcessRow(endpoint, infoById[endpoint.ProcessId], _currentProcessId));
+            foreach (var group in snapshot.Query.Endpoints
+                .GroupBy(endpoint => new { endpoint.ProcessId, endpoint.Port, endpoint.Protocol })
+                .OrderBy(group => group.Key.Protocol)
+                .ThenBy(group => group.Key.Port)
+                .ThenBy(group => group.Key.ProcessId))
+            {
+                var endpoints = group
+                    .OrderBy(endpoint => endpoint.IpVersion == "IPv6" ? 1 : 0)
+                    .ThenBy(endpoint => endpoint.LocalAddress, StringComparer.Ordinal)
+                    .ToList();
+                snapshot.Rows.Add(new PortProcessRow(endpoints, infoById[group.Key.ProcessId], _currentProcessId));
+            }
             return snapshot;
         }
 
@@ -273,7 +283,7 @@ namespace ProcessesKiller
             if (_isClosing || _isTerminating || _isConfirmingPortKill || _isQueryingPort || !_portQueryComplete || _portConditionsDirty || !_hasPortQuery) return;
             var selectedRows = PortProcessGrid.SelectedItems.Cast<PortProcessRow>().ToList();
             var selectedKeysById = selectedRows.GroupBy(row => row.Id).ToDictionary(group => group.Key,
-                group => new HashSet<string>(group.Select(row => row.Endpoint.Key)));
+                group => new HashSet<string>(group.SelectMany(row => row.Endpoints.Select(endpoint => endpoint.Key))));
             var targets = selectedRows.Select(row => CreateTarget(row.Process, true))
                 .GroupBy(target => target.Id).Select(group => group.First()).ToList();
             if (targets.Count == 0) return;
@@ -288,7 +298,7 @@ namespace ProcessesKiller
                 var text = QueryLabel(port, protocol) + "\n将结束整个进程，同时影响它的其他端口；不可操作的目标会跳过。";
                 var targetList = string.Join(Environment.NewLine + Environment.NewLine, selectedRows.GroupBy(row => row.Id).Select(group =>
                     group.First().Name + " (PID " + group.Key + ")" + Environment.NewLine
-                    + string.Join(Environment.NewLine, group.OrderBy(row => row.Port).Select(row => "  " + FormatEndpoint(row)))));
+                    + string.Join(Environment.NewLine, group.OrderBy(row => row.Port).ThenBy(row => row.Protocol).Select(row => "  " + FormatEndpoint(row)))));
                 if (targets.Any(target => target.NormalizedName.Equals("explorer", StringComparison.OrdinalIgnoreCase)))
                     text += "\n包含 explorer.exe，桌面和任务栏可能会关闭。";
                 var confirmed = TerminationConfirmation != null
@@ -355,7 +365,8 @@ namespace ProcessesKiller
 
         private static string FormatEndpoint(PortProcessRow row)
         {
-            return row.Protocol + " " + (row.IpVersion == "IPv6" ? "[" + row.LocalAddress + "]" : row.LocalAddress) + ":" + row.Port;
+            return row.Protocol + " " + string.Join(", ", row.Endpoints.Select(endpoint =>
+                (endpoint.IpVersion == "IPv6" ? "[" + endpoint.LocalAddress + "]" : endpoint.LocalAddress) + ":" + endpoint.Port));
         }
 
         private void PortGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -454,18 +465,18 @@ namespace ProcessesKiller
 
         public sealed class PortProcessRow : INotifyPropertyChanged
         {
-            internal PortEndpoint Endpoint { get; private set; }
+            internal IReadOnlyList<PortEndpoint> Endpoints { get; private set; }
             public ProcessInfo Process { get; private set; }
             private readonly int _currentProcessId;
-            internal PortProcessRow(PortEndpoint endpoint, ProcessInfo process, int currentProcessId)
-            { Endpoint = endpoint; Process = process; _currentProcessId = currentProcessId; }
+            internal PortProcessRow(IReadOnlyList<PortEndpoint> endpoints, ProcessInfo process, int currentProcessId)
+            { Endpoints = endpoints; Process = process; _currentProcessId = currentProcessId; }
             public event PropertyChangedEventHandler PropertyChanged;
-            public string Protocol { get { return Endpoint.Protocol; } }
-            public string IpVersion { get { return Endpoint.IpVersion; } }
-            public string LocalAddress { get { return Endpoint.LocalAddress; } }
-            public int Port { get { return Endpoint.Port; } }
-            public string State { get { return Endpoint.State; } }
-            public int Id { get { return Endpoint.ProcessId; } }
+            public string Protocol { get { return Endpoints[0].Protocol; } }
+            public string IpVersion { get { return string.Join(" + ", Endpoints.Select(endpoint => endpoint.IpVersion).Distinct()); } }
+            public string LocalAddress { get { return string.Join(", ", Endpoints.Select(endpoint => endpoint.LocalAddress).Distinct()); } }
+            public int Port { get { return Endpoints[0].Port; } }
+            public string State { get { return Endpoints[0].State; } }
+            public int Id { get { return Endpoints[0].ProcessId; } }
             public string Name { get { return Process.Name; } }
             public string RowForeground { get { return Process.RowForeground; } }
             public bool CanTerminate { get { return Id > 4 && Id != _currentProcessId && Process.StartTimeUtcTicks.HasValue && !string.IsNullOrEmpty(Process.NormalizedName); } }
@@ -473,10 +484,13 @@ namespace ProcessesKiller
             {
                 get { return Id <= 4 ? "系统进程，不可结束" : Id == _currentProcessId ? "当前工具，不可结束" : CanTerminate ? "可结束" : "无法验证身份，不可结束"; }
             }
-            internal string IdentityKey { get { return Endpoint.Key + "|" + Process.StartTimeUtcTicks + "|" + Process.NormalizedName; } }
+            internal string IdentityKey
+            {
+                get { return Protocol + "|" + Port.ToString(CultureInfo.InvariantCulture) + "|" + Id.ToString(CultureInfo.InvariantCulture) + "|" + Process.StartTimeUtcTicks + "|" + Process.NormalizedName; }
+            }
             internal void UpdateFrom(PortProcessRow row)
             {
-                Endpoint = row.Endpoint; Process = row.Process;
+                Endpoints = row.Endpoints; Process = row.Process;
                 var changed = PropertyChanged;
                 if (changed != null) changed(this, new PropertyChangedEventArgs(string.Empty));
             }
